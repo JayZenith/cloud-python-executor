@@ -1,0 +1,32 @@
+FROM python:3.10-slim
+
+# Install necessary system packages for nsjail
+RUN apt-get update && apt-get install -y \
+    git build-essential libseccomp-dev protobuf-compiler pkg-config flex bison \
+    libnl-3-dev libnl-route-3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build and install nsjail
+RUN git clone https://github.com/google/nsjail.git /nsjail_src && \
+    make -C /nsjail_src && \
+    mkdir -p /nsjail && \
+    cp /nsjail_src/nsjail /nsjail/nsjail && \
+    rm -rf /nsjail_src
+
+# Ensure /usr/bin/python3 exists (used by nsjail exec path)
+RUN ln -sf /usr/local/bin/python3 /usr/bin/python3
+
+# Set up sandbox directory with open permissions
+RUN mkdir -p /tmp/sandbox && chmod 777 /tmp/sandbox
+
+# Copy app code
+WORKDIR /app
+COPY app.py runner.py requirements.txt /app/
+RUN cp /app/runner.py /tmp/sandbox/runner.py
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose port 8080 and run the app
+EXPOSE 8080
+CMD ["python", "-u", "app.py"]
