@@ -64,7 +64,17 @@ def execute():
     # Execute script 
     proc = run_script_with_nsjail(data["script"])
     if proc.returncode != 0:
-        return jsonify({"error": proc.stderr.strip()}), 500
+        # return jsonify({"error": proc.stderr.strip()}), 500
+        # error_message = proc.stderr.strip().splitlines()[-1] if proc.stderr else "Unknown error"
+        # return jsonify({"error": error_message}), 500
+        try:
+            # Try to parse the last line of stderr as JSON (from runner.py)
+            last_line = proc.stdout.strip().splitlines()[-1]
+            parsed = json.loads(last_line)
+            return jsonify({"error": parsed.get("error", "Unknown error")}), 500
+        except Exception:
+            return jsonify({"error": "Execution failed"}), 500
+
 
     # parse JSON output from runner 
     try:
