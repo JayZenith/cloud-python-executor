@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import subprocess, os, json, uuid
 
+
 app = Flask(__name__)
 
 NSJAIL_PATH = "/nsjail/nsjail"
@@ -10,27 +11,30 @@ SANDBOX_DIR = "/tmp/sandbox"  # mounted inside container
 
 
 def run_script_with_nsjail(script_code: str):
+    #create unique filename for each script to prevent race conditions
     script_path = os.path.join(SANDBOX_DIR, f"user_{uuid.uuid4().hex}.py")
+    #write user code to temporary file
     with open(script_path, "w") as f:
         f.write(script_code)
 
+    #nsjail cmd construction
     cmd = [
         NSJAIL_PATH,
-        "-Mo",
-        "--time_limit=5",
-        "--cwd", SANDBOX_DIR,
-        "--bindmount_ro", "/usr",
-        "--bindmount_ro", "/lib",
+        "-Mo",                      # Mount mode, no network (prevent external comm)
+        "--time_limit=5",           # 5s timeout (prevent infinite loops)
+        "--cwd", SANDBOX_DIR,       
+        "--bindmount_ro", "/usr",   # Read-only access to system libs
+        "--bindmount_ro", "/lib",   
         "--bindmount_ro", "/lib64",
         "--bindmount_ro", "/app",              
-        "--bindmount", SANDBOX_DIR,
+        "--bindmount", SANDBOX_DIR, # Read-write access to sandbox 
         "--",
         PYTHON_BIN,
         RUNNER_PATH,
         script_path
     ]
 
-
+    # execute sandboxed command and clean up temp file
     result = subprocess.run(cmd, capture_output=True, text=True)
     os.remove(script_path)
     return result
@@ -57,10 +61,12 @@ def execute():
     if not isinstance(data["script"], str):
         return jsonify({"error": "'script' must be a string"}), 400
 
+    # Execute script 
     proc = run_script_with_nsjail(data["script"])
     if proc.returncode != 0:
         return jsonify({"error": proc.stderr.strip()}), 500
 
+    # parse JSON output from runner 
     try:
         output = json.loads(proc.stdout)
         return jsonify(output)

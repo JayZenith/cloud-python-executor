@@ -1,17 +1,22 @@
 import sys, json, importlib.util, io, contextlib
 
 def run_user_script(path):
+    #import user scripts as python modules 
     spec = importlib.util.spec_from_file_location("user_script", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
+    # Ensure scripts have main()
     if not hasattr(module, "main"):
         raise Exception("No main() in user script")
 
+    # stdout capture to redirect print stmts to buffer 
+    # capture return value and stdout separately
     with io.StringIO() as buf, contextlib.redirect_stdout(buf):
         result = module.main()
         stdout = buf.getvalue()
 
+    # Ensure return value can be serialized to JSON
     if not isinstance(result, (dict, list, str, int, float, bool, type(None))):
         raise Exception("main() must return a JSON-serializable value")
 
