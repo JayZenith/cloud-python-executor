@@ -3,11 +3,36 @@
 This project implements an API service that takes a Python script as input via a POST request to the /execute endpoint. It executes the main() function within the provided script and returns its result along with any standard output generated during execution.
 
 ## Features
-
 - Secure code execution using nsjail sandboxing
 - Support for common libraries (pandas, numpy, os)
 - JSON-based API with error handling
 - Lightweight Docker container
+
+
+### Google Cloud Run Endpoint Example 1
+```bash
+curl -X POST https://cloud-python-executor-640759399043.us-central1.run.app/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "script": "def main():\n    return {\"message\": \"Hello from the cloud!\", \"status\": \"success\"}"
+  }'
+```
+### Expected Output
+```bash
+-d {"result":{"message":"Hello from the cloud!","status":"success"},"stdout":""}
+```
+
+### Google Cloud Run Endpoint Example 2 
+
+```bash
+curl -X POST http://localhost:8080/execute \
+  -H "Content-Type: application/json" \
+  -d '{"script": "def not_main(): pass"}'
+```
+### Expected Output
+```bash
+-d '{ "error": "No main() in user script" }'
+```
 
 ## Local Development
 
@@ -26,27 +51,7 @@ curl -X POST http://localhost:8080/execute \
   }'
 ```
 
-```bash
-curl -X POST http://localhost:8080/execute \
-  -H "Content-Type: application/json" \
-  -d '{"script": "def not_main(): pass"}'
-```
-### You'll Get
-```bash
--d '{ "error": "No main() in user script" }'
-```
-
-### Google Cloud Run Endpoint
-```bash
-curl -X POST https://cloud-python-executor-640759399043.us-central1.run.app/execute \
-  -H "Content-Type: application/json" \
-  -d '{
-    "script": "def main():\n    return {\"message\": \"Hello from the cloud!\", \"status\": \"success\"}"
-  }'
-```
-
 ### Secruity Considerations & nsjail
-
 This assignment specifies use of nsjail for secure script execution and deployment to Google Cloud Run. This presents a critical conflict:
 - nsjail requires low-level Linux kernel features (like namspaces and seccomp filters) that require priveleged operations on host system
 - Google Cloud Run is a managed serverless platform where containers run in a highly secure, unprivileged environment. It does not allow the kind of priveleged operations that nsjail requiers. Attempting to run nsjail on Cloud Run will result in permission errors and failure. 
@@ -57,7 +62,6 @@ Therefore, for deployment to Google Cloud Run, nsjail has been omitted. The appy
 Approximately 5-6 hours due to investiging the security issues
 
 ## Requirements
-
 - Script must contain a `main()` function
 - `main()` function must return a JSON-serializable object
 - Maximum execution time: 5 seconds
